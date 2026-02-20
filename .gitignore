@@ -1,3 +1,24 @@
-__pycache__/
-.venv/
+# === 대전제: input/output 데이터는 절대 git에 업로드하지 않는다 ===
+# 모든 입력 데이터, 변환 결과물, 예시 데이터는 추적하지 않음
 example_Data/
+output/
+input/
+*.pdf
+*.docx
+*.doc
+*.hwp
+*.hwpx
+*.pptx
+*.ppt
+*.xlsx
+*.xls
+*.epub
+
+# 테스트 fixtures는 예외 허용
+!tests/fixtures/**
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
