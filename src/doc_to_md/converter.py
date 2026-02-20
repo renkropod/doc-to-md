@@ -1,6 +1,7 @@
 """메인 변환 오케스트레이터"""
 
 import logging
+import unicodedata
 from pathlib import Path
 
 from doc_to_md.exceptions import ParserError, UnsupportedFormatError
@@ -79,7 +80,15 @@ def convert_file(
     """
     input_path = Path(input_path).resolve()
     if not input_path.exists():
-        raise FileNotFoundError(f"파일을 찾을 수 없습니다: {input_path}")
+        # NFD/NFC 유니코드 정규화 차이로 파일을 못 찾는 경우 처리
+        nfd_path = Path(unicodedata.normalize("NFD", str(input_path)))
+        nfc_path = Path(unicodedata.normalize("NFC", str(input_path)))
+        if nfd_path.exists():
+            input_path = nfd_path
+        elif nfc_path.exists():
+            input_path = nfc_path
+        else:
+            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {input_path}")
 
     if output_path is None:
         output_path = input_path.with_suffix(".md")
