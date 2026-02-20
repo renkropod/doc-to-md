@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "doc-to-md"
+version = "0.1.0"
+description = "범용 문서 파싱 프로그램 - 다양한 문서 포맷을 Markdown으로 변환"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "python-magic>=0.4.27",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+pdf = ["pymupdf4llm>=0.0.5", "pymupdf>=1.24.0", "pdfplumber>=0.10.0"]
+docx = ["python-docx>=1.0.0", "mammoth>=1.6.0"]
+hwp = ["olefile>=0.47"]
+pptx = ["python-pptx>=0.6.23"]
+xlsx = ["openpyxl>=3.1.0", "pandas>=2.0.0"]
+html = ["beautifulsoup4>=4.12.0", "markdownify>=0.11.0"]
+epub = ["ebooklib>=0.18"]
+ocr = ["pytesseract>=0.3.10", "Pillow>=10.0.0"]
+all = [
+    "doc-to-md[pdf,docx,hwp,pptx,xlsx,html,epub,ocr]",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+doc-to-md = "doc_to_md.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/doc_to_md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
