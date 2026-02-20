@@ -27,15 +27,25 @@ class HtmlParser(BaseParser):
 
         # 인코딩 자동 감지
         html_content = None
-        for encoding in ["utf-8", "cp949", "euc-kr", "iso-8859-1"]:
+        raw_bytes = file_path.read_bytes()
+
+        # BOM 감지
+        if raw_bytes[:2] in (b"\xff\xfe", b"\xfe\xff"):
             try:
-                html_content = file_path.read_text(encoding=encoding)
-                break
+                html_content = raw_bytes.decode("utf-16")
             except (UnicodeDecodeError, UnicodeError):
-                continue
+                pass
 
         if html_content is None:
-            html_content = file_path.read_bytes().decode("utf-8", errors="replace")
+            for encoding in ["utf-8", "cp949", "euc-kr", "iso-8859-1"]:
+                try:
+                    html_content = raw_bytes.decode(encoding)
+                    break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
+
+        if html_content is None:
+            html_content = raw_bytes.decode("utf-8", errors="replace")
 
         soup = BeautifulSoup(html_content, "html.parser")
 
