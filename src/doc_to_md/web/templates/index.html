@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>doc-to-md</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>doc-to-md</h1>
+        <p>문서를 업로드하면 Markdown으로 변환합니다</p>
+    </header>
+
+    <!-- Upload Area -->
+    <div class="upload-area" id="uploadArea">
+        <div class="icon">📄</div>
+        <p>파일을 드래그하거나 클릭하여 선택하세요</p>
+        <p class="filename" id="fileName"></p>
+        <input type="file" id="fileInput" hidden>
+    </div>
+
+    <!-- Options -->
+    <div class="options">
+        <label class="option-item">
+            <input type="checkbox" id="optClean" checked>
+            후처리 정리
+        </label>
+        <label class="option-item">
+            <input type="checkbox" id="optNoMeta">
+            메타데이터 제외
+        </label>
+        <label class="option-item">
+            <input type="checkbox" id="optOcr">
+            OCR 활성화
+        </label>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+        <button class="btn btn-primary" id="btnPreview" disabled>미리보기</button>
+        <button class="btn btn-secondary" id="btnDownload" disabled>다운로드</button>
+    </div>
+
+    <!-- Status -->
+    <div class="status" id="status">
+        <span class="spinner"></span>
+        <span>변환 중...</span>
+    </div>
+
+    <!-- Error -->
+    <div class="error" id="error"></div>
+
+    <!-- Result Preview -->
+    <div class="result" id="result">
+        <div class="result-header">
+            <h3 id="resultFilename">result.md</h3>
+            <span class="meta" id="resultMeta"></span>
+        </div>
+        <div class="result-content" id="resultContent"></div>
+    </div>
+
+    <!-- Supported Formats -->
+    <div class="formats">
+        <h3>지원 포맷</h3>
+        <div class="format-tags">
+            {% for fmt in formats %}
+            <div class="format-tag">
+                <span class="ext">{{ fmt.ext }}</span> {{ fmt.name }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName');
+const btnPreview = document.getElementById('btnPreview');
+const btnDownload = document.getElementById('btnDownload');
+const status = document.getElementById('status');
+const error = document.getElementById('error');
+const result = document.getElementById('result');
+const resultFilename = document.getElementById('resultFilename');
+const resultMeta = document.getElementById('resultMeta');
+const resultContent = document.getElementById('resultContent');
+
+let selectedFile = null;
+
+// Upload area events
+uploadArea.addEventListener('click', () => fileInput.click());
+
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover');
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+        selectFile(e.dataTransfer.files[0]);
+    }
+});
+
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) {
+        selectFile(fileInput.files[0]);
+    }
+});
+
+function selectFile(file) {
+    selectedFile = file;
+    fileName.textContent = file.name + ' (' + formatSize(file.size) + ')';
+    btnPreview.disabled = false;
+    btnDownload.disabled = false;
+    error.classList.remove('show');
+    result.classList.remove('show');
+}
+
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function getFormData() {
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+    fd.append('clean', document.getElementById('optClean').checked);
+    fd.append('no_metadata', document.getElementById('optNoMeta').checked);
+    fd.append('ocr', document.getElementById('optOcr').checked);
+    return fd;
+}
+
+function showLoading(show) {
+    status.classList.toggle('show', show);
+    btnPreview.disabled = show;
+    btnDownload.disabled = show;
+}
+
+function showError(msg) {
+    error.textContent = msg;
+    error.classList.add('show');
+}
+
+// Preview
+btnPreview.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    showLoading(true);
+    error.classList.remove('show');
+    result.classList.remove('show');
+
+    try {
+        const res = await fetch('/convert/preview', { method: 'POST', body: getFormData() });
+        const data = await res.json();
+
+        if (!res.ok) {
+            showError(data.error || '변환 실패');
+            return;
+        }
+
+        resultFilename.textContent = data.filename;
+        resultMeta.textContent = formatSize(data.size);
+        resultContent.textContent = data.content;
+        result.classList.add('show');
+    } catch (e) {
+        showError('서버 연결 실패: ' + e.message);
+    } finally {
+        showLoading(false);
+    }
+});
+
+// Download
+btnDownload.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    showLoading(true);
+    error.classList.remove('show');
+
+    try {
+        const res = await fetch('/convert', { method: 'POST', body: getFormData() });
+
+        if (!res.ok) {
+            const data = await res.json();
+            showError(data.error || '변환 실패');
+            return;
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const disposition = res.headers.get('content-disposition') || '';
+        const match = disposition.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i);
+        a.download = match ? decodeURIComponent(match[1]) : selectedFile.name.replace(/\.[^.]+$/, '.md');
+        a.href = url;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        showError('서버 연결 실패: ' + e.message);
+    } finally {
+        showLoading(false);
+    }
+});
+</script>
+</body>
+</html>

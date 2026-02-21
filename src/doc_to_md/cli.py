@@ -147,5 +147,27 @@ def batch(
     )
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("0.0.0.0", "--host", help="서버 호스트"),
+    port: int = typer.Option(8000, "--port", "-p", help="서버 포트"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="디버그 로그 활성화"),
+) -> None:
+    """Web UI 서버를 실행합니다."""
+    _setup_logging(verbose)
+
+    try:
+        import uvicorn
+    except ImportError:
+        console.print(
+            "[red]오류:[/red] Web UI를 위해 추가 패키지가 필요합니다:\n"
+            "  pip install doc-to-md[web]"
+        )
+        raise typer.Exit(code=1)
+
+    console.print(f"[green]Web UI 시작:[/green] http://{host}:{port}")
+    uvicorn.run("doc_to_md.web.app:app", host=host, port=port, reload=False)
+
+
 if __name__ == "__main__":
     app()
